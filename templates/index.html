@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLC Status</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        canvas {
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>VLC Status</h1>
+    <div id="status" class="status">
+        <div class="card">
+            <h2>Playback Status</h2>
+            <p><strong>State:</strong> <span id="state">Loading...</span></p>
+            <p><strong>Time:</strong> <span id="time">Loading...</span></p>
+            <div class="progress-container">
+                <label for="progress">Progress:</label>
+                <progress id="progress" value="0" max="100"></progress>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Media Information</h2>
+            <p><strong>File:</strong> <span id="filename">Loading...</span></p>
+            <p><strong>Codec:</strong> <span id="codec">Loading...</span></p>
+            <p><strong>Channels:</strong> <span id="channels">Loading...</span></p>
+            <p><strong>Sample Rate:</strong> <span id="sample-rate">Loading...</span></p>
+        </div>
+        <div class="card">
+            <h2>Volume History</h2>
+            <canvas id="volume-chart"></canvas>
+        </div>
+    </div>
+    <script>
+        async function fetchVlcStatus() {
+            try {
+                const response = await fetch('/vlc/status');
+                const data = await response.json();
+
+                // Update playback status
+                document.getElementById('state').textContent = data.state;
+                document.getElementById('time').textContent = data.time + ' seconds';
+                document.getElementById('progress').value = (data.time / data.length) * 100;
+
+                // Update media information
+                document.getElementById('filename').textContent = data.information.category.meta.filename;
+                document.getElementById('codec').textContent = data.information.category["Stream 0"].Codec;
+                document.getElementById('channels').textContent = data.information.category["Stream 0"].Channels;
+                document.getElementById('sample-rate').textContent = data.information.category["Stream 0"]["Sample_rate"];
+
+                // Update volume chart
+                updateVolumeChart(data.volume);
+            } catch (error) {
+                console.error('Error fetching VLC status:', error);
+            } finally {
+                // Schedule next fetch
+                setTimeout(fetchVlcStatus, 5000); // Fetch every 5 seconds
+            }
+        }
+
+        function updateVolumeChart(volume) {
+            const ctx = document.getElementById('volume-chart').getContext('2d');
+            const myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Volume',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 512 // Adjust according to your max volume
+                        }
+                    }
+                }
+            });
+
+            // Add new data point to the chart
+            myChart.data.labels.push(new Date().toLocaleTimeString());
+            myChart.data.datasets[0].data.push(volume);
+            myChart.update();
+        }
+
+        fetchVlcStatus();
+    </script>
+</body>
+  </html>
